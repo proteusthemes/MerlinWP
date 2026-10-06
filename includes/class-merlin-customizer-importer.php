@@ -71,10 +71,10 @@ class Merlin_Customizer_Importer {
 			);
 		}
 
-		$data = unserialize( $raw );
+		$data = unserialize( $raw, array( 'allowed_classes' => false ) );
 
 		// Data checks.
-		if ( ! is_array( $data ) && ( ! isset( $data['template'] ) || ! isset( $data['mods'] ) ) ) {
+		if ( ! is_array( $data ) || ! isset( $data['template'] ) || ! isset( $data['mods'] ) ) {
 			return new \WP_Error(
 				'customizer_import_data_error',
 				esc_html__( 'Error: The customizer import file is not in a correct format. Please make sure to use the correct customizer import file.', '@@textdomain' )
@@ -99,7 +99,9 @@ class Merlin_Customizer_Importer {
 				require_once ABSPATH . 'wp-includes/class-wp-customize-setting.php';
 			}
 
-			foreach ( $data['options'] as $option_key => $option_value ) {
+			$options = apply_filters( 'merlin_customizer_import_options', $data['options'] );
+
+			foreach ( $options as $option_key => $option_value ) {
 				$option = new Merlin_Customizer_Option( $wp_customize, $option_key, array(
 					'default'    => '',
 					'type'       => 'option',
@@ -117,8 +119,10 @@ class Merlin_Customizer_Importer {
 			do_action( 'customize_save', $wp_customize );
 		}
 
+		$mods = apply_filters( 'merlin_customizer_import_mods', $data['mods'] );
+
 		// Loop through the mods and save the mods.
-		foreach ( $data['mods'] as $key => $val ) {
+		foreach ( $mods as $key => $val ) {
 			if ( $use_wp_customize_save_hooks ) {
 				do_action( 'customize_save_' . $key, $wp_customize );
 			}

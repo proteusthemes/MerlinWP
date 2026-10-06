@@ -33,6 +33,13 @@ class Merlin_Downloader {
 	public function download_file( $url, $filename ) {
 		$content = $this->get_content_from_url( $url );
 
+		if ( ! is_wp_error( $content ) && ! $this->is_valid_content( $content, $filename ) ) {
+			$content = new \WP_Error(
+				'invalid_content',
+				__( 'The downloaded file is not in the expected format.', '@@textdomain' )
+			);
+		}
+
 		// Check if there was an error and break out.
 		if ( is_wp_error( $content ) ) {
 			Merlin_Logger::get_instance()->error( $content->get_error_message(), array( 'url' => $url, 'filename' => $filename ) );
@@ -94,6 +101,39 @@ class Merlin_Downloader {
 
 		// Return content retrieved from the URL.
 		return wp_remote_retrieve_body( $response );
+	}
+
+
+	/**
+	 * Helper function: check if the downloaded content matches the type of the import file.
+	 *
+	 * @param string $content  The downloaded content.
+	 * @param string $filename Filename of the file to save.
+	 * @return bool
+	 */
+	private function is_valid_content( $content, $filename ) {
+		switch ( pathinfo( $filename, PATHINFO_EXTENSION ) ) {
+			case 'xml':
+				if ( ! function_exists( 'simplexml_load_string' ) ) {
+					return true;
+				}
+
+				$use_errors = libxml_use_internal_errors( true );
+				$xml        = simplexml_load_string( $content );
+
+				libxml_clear_errors();
+				libxml_use_internal_errors( $use_errors );
+
+				return false !== $xml;
+
+			case 'json':
+				return is_object( json_decode( $content ) );
+
+			case 'dat':
+				return is_serialized( $content ) && is_array( unserialize( $content, array( 'allowed_classes' => false ) ) );
+		}
+
+		return true;
 	}
 
 

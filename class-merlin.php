@@ -277,6 +277,8 @@ class Merlin {
 		// Set the ignore option.
 		$this->ignore = $this->slug . '_ignore';
 
+		add_action( 'admin_init', array( $this, 'delete_legacy_log_file' ) );
+
 		// Is Dev Mode turned on?
 		if ( true !== $this->dev_mode ) {
 
@@ -351,6 +353,18 @@ class Merlin {
 	}
 
 	/**
+	 * Delete the log file, which older versions wrote to a fixed path.
+	 */
+	public function delete_legacy_log_file() {
+		$upload_dir = wp_upload_dir( null, false );
+		$log_file   = $upload_dir['basedir'] . '/merlin-wp/main.log';
+
+		if ( file_exists( $log_file ) ) {
+			unlink( $log_file );
+		}
+	}
+
+	/**
 	 * Set redirection transient on theme switch.
 	 */
 	public function switch_theme() {
@@ -364,13 +378,23 @@ class Merlin {
 	 */
 	public function redirect() {
 
+		if ( wp_doing_ajax() || ! current_user_can( $this->capability ) ) {
+			return;
+		}
+
 		if ( ! get_transient( $this->theme->template . '_merlin_redirect' ) ) {
+			return;
+		}
+
+		$url = menu_page_url( $this->merlin_url, false );
+
+		if ( empty( $url ) ) {
 			return;
 		}
 
 		delete_transient( $this->theme->template . '_merlin_redirect' );
 
-		wp_safe_redirect( menu_page_url( $this->merlin_url ) );
+		wp_safe_redirect( $url );
 
 		exit;
 	}
@@ -386,6 +410,8 @@ class Merlin {
 		}
 
 		update_option( 'merlin_' . $this->slug . '_completed', 'ignored' );
+
+		$this->logger->delete_log_file();
 	}
 
 	/**
@@ -431,6 +457,10 @@ class Merlin {
 
 		// Do not proceed, if we're not on the right page.
 		if ( empty( $_GET['page'] ) || $this->merlin_url !== $_GET['page'] ) {
+			return;
+		}
+
+		if ( wp_doing_ajax() || 'admin-post.php' === $GLOBALS['pagenow'] || ! is_user_logged_in() || ! current_user_can( $this->capability ) ) {
 			return;
 		}
 
@@ -1307,6 +1337,7 @@ class Merlin {
 
 	<?php
 		$this->logger->debug( __( 'The final step has been displayed', '@@textdomain' ) );
+		$this->logger->delete_log_file();
 	}
 
 	/**
@@ -1347,6 +1378,8 @@ class Merlin {
 	 * Generate the child theme via AJAX.
 	 */
 	public function generate_child() {
+
+		$this->verify_ajax_request();
 
 		// Strings passed in from the config file.
 		$strings = $this->strings;
@@ -1417,14 +1450,7 @@ class Merlin {
 	 */
 	public function _ajax_activate_license() {
 
-		if ( ! check_ajax_referer( 'merlin_nonce', 'wpnonce' ) ) {
-			wp_send_json(
-				array(
-					'success' => false,
-					'message' => esc_html__( 'Yikes! The theme activation failed. Please try again or contact support.', '@@textdomain' ),
-				)
-			);
-		}
+		$this->verify_ajax_request();
 
 		if ( empty( $_POST['license_key'] ) ) {
 			wp_send_json(
@@ -1698,7 +1724,9 @@ class Merlin {
 	 */
 	function _ajax_plugins() {
 
-		if ( ! check_ajax_referer( 'merlin_nonce', 'wpnonce' ) || empty( $_POST['slug'] ) ) {
+		$this->verify_ajax_request();
+
+		if ( empty( $_POST['slug'] ) ) {
 			exit( 0 );
 		}
 
@@ -1793,19 +1821,21 @@ class Merlin {
 	function _ajax_content() {
 		static $content = null;
 
+		$this->verify_ajax_request();
+
 		$selected_import = intval( $_POST['selected_index'] );
 
 		if ( null === $content ) {
 			$content = $this->get_import_data( $selected_import );
 		}
 
-		if ( ! check_ajax_referer( 'merlin_nonce', 'wpnonce' ) || empty( $_POST['content'] ) && isset( $content[ $_POST['content'] ] ) ) {
+		if ( empty( $_POST['content'] ) || ! isset( $content[ $_POST['content'] ] ) ) {
 			$this->logger->error( __( 'The content importer AJAX call failed to start, because of incorrect data', '@@textdomain' ) );
 
 			wp_send_json_error(
 				array(
 					'error'   => 1,
-					'message' => esc_html__( 'Invalid content!', '@@textdomain' ),
+					'message' => esc_html__( 'The demo import file could not be downloaded. Please try again or contact support.', '@@textdomain' ),
 				)
 			);
 		}
@@ -1882,19 +1912,21 @@ class Merlin {
 	 * AJAX call to retrieve total items (posts, pages, CPT, attachments) for the content import.
 	 */
 	public function _ajax_get_total_content_import_items() {
-		if ( ! check_ajax_referer( 'merlin_nonce', 'wpnonce' ) && empty( $_POST['selected_index'] ) ) {
+		$this->verify_ajax_request();
+
+		$selected_import = intval( $_POST['selected_index'] );
+		$import_files    = $this->get_import_files_paths( $selected_import );
+
+		if ( empty( $import_files['content'] ) ) {
 			$this->logger->error( __( 'The content importer AJAX call for retrieving total content import items failed to start, because of incorrect data.', '@@textdomain' ) );
 
 			wp_send_json_error(
 				array(
 					'error'   => 1,
-					'message' => esc_html__( 'Invalid data!', '@@textdomain' ),
+					'message' => esc_html__( 'The demo import file could not be downloaded. Please try again or contact support.', '@@textdomain' ),
 				)
 			);
 		}
-
-		$selected_import = intval( $_POST['selected_index'] );
-		$import_files    = $this->get_import_files_paths( $selected_import );
 
 		wp_send_json_success( $this->importer->get_number_of_posts_to_import( $import_files['content'] ) );
 	}
@@ -2169,18 +2201,49 @@ class Merlin {
 
 	/**
 	 * Set the import file base name.
-	 * Check if an existing base name is available (saved in a transient).
+	 * Check if an existing base name is available for the selected import (saved in a transient).
+	 *
+	 * @param int $selected_import_index The index of the selected import.
 	 */
-	public function set_import_file_base_name() {
-		$existing_name = get_transient( 'merlin_import_file_base_name' );
+	public function set_import_file_base_name( $selected_import_index ) {
+		$existing = get_transient( 'merlin_import_file_base_name' );
 
-		if ( ! empty( $existing_name ) ) {
-			$this->import_file_base_name = $existing_name;
+		if ( is_array( $existing ) && $selected_import_index === $existing['index'] ) {
+			$this->import_file_base_name = $existing['name'];
 		} else {
+			if ( is_array( $existing ) ) {
+				$this->delete_import_files( $existing['name'] );
+			}
+
 			$this->import_file_base_name = date( 'Y-m-d__H-i-s' );
 		}
 
-		set_transient( 'merlin_import_file_base_name', $this->import_file_base_name, MINUTE_IN_SECONDS );
+		set_transient(
+			'merlin_import_file_base_name',
+			array(
+				'index' => $selected_import_index,
+				'name'  => $this->import_file_base_name,
+			),
+			MINUTE_IN_SECONDS
+		);
+	}
+
+	/**
+	 * Delete the downloaded import files with the given base name.
+	 *
+	 * @param string $base_name The base name of the import files.
+	 */
+	protected function delete_import_files( $base_name ) {
+		$downloader = new Merlin_Downloader();
+		$files      = glob( $downloader->get_download_directory_path() . '*-' . $base_name . '.*' );
+
+		if ( empty( $files ) ) {
+			return;
+		}
+
+		foreach ( $files as $file ) {
+			unlink( $file );
+		}
 	}
 
 	/**
@@ -2199,7 +2262,7 @@ class Merlin {
 		}
 
 		// Set the base name for the import files.
-		$this->set_import_file_base_name();
+		$this->set_import_file_base_name( $selected_import_index );
 
 		$base_file_name = $this->import_file_base_name;
 		$import_files   = array(
@@ -2354,6 +2417,8 @@ class Merlin {
 	 * AJAX callback for the 'merlin_update_selected_import_data_info' action.
 	 */
 	public function update_selected_import_data_info() {
+		$this->verify_ajax_request();
+
 		$selected_index = ! isset( $_POST['selected_index'] ) ? false : intval( $_POST['selected_index'] );
 
 		if ( false === $selected_index ) {
@@ -2401,7 +2466,26 @@ class Merlin {
 	 * AJAX call for cleanup after the importing steps are done -> import finished.
 	 */
 	public function import_finished() {
+		$this->verify_ajax_request();
+
+		$existing = get_transient( 'merlin_import_file_base_name' );
+
+		if ( is_array( $existing ) ) {
+			$this->delete_import_files( $existing['name'] );
+		}
+
 		delete_transient( 'merlin_import_file_base_name' );
 		wp_send_json_success();
+	}
+
+	/**
+	 * Check the nonce and the capability of the current user for the wizard AJAX calls.
+	 */
+	private function verify_ajax_request() {
+		check_ajax_referer( 'merlin_nonce', 'wpnonce' );
+
+		if ( ! current_user_can( $this->capability ) ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'You are not allowed to do this.', '@@textdomain' ) ), 403 );
+		}
 	}
 }
