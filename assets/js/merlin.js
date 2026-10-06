@@ -351,10 +351,11 @@ function PluginManager(){
         var current_content_import_items = 1;
         var total_content_import_items = 0;
         var progress_bar_interval;
+        var shown_errors = {};
 
         function ajax_callback(response) {
             var currentSpan = $current_node.find("label");
-            if(typeof response == "object" && typeof response.message !== "undefined"){
+            if(typeof response == "object" && typeof response.message === "string"){
                 currentSpan.addClass(response.message.toLowerCase());
 
                 if( typeof response.num_of_imported_posts !== "undefined" && 0 < total_content_import_items ) {
@@ -388,7 +389,18 @@ function PluginManager(){
                 console.log(response);
                 // error - try again with next plugin
                 currentSpan.addClass("status--error");
+                show_error(response);
                 find_next();
+            }
+        }
+
+        function show_error(response) {
+            var data = response && response.responseJSON ? response.responseJSON.data : response && response.data;
+            var message = data && typeof data.message === "string" ? data.message : merlin_params.texts.something_went_wrong;
+
+            if ( ! shown_errors[ message ] ) {
+                shown_errors[ message ] = true;
+                alert( message );
             }
         }
 

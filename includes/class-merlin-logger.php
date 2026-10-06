@@ -68,10 +68,31 @@ class Merlin_Logger {
 				wp_mkdir_p( $logger_dir );
 			}
 
-			$this->log_path = $logger_dir . '/main.log';
+			$log_file_name = get_option( 'merlin_log_file_name' );
+
+			if ( empty( $log_file_name ) ) {
+				$log_file_name = 'main-' . wp_generate_password( 32, false ) . '.log';
+				update_option( 'merlin_log_file_name', $log_file_name, false );
+			}
+
+			$this->log_path = $logger_dir . '/' . $log_file_name;
 		}
 
 		$this->initialize_logger();
+	}
+
+
+	/**
+	 * Delete the log file.
+	 */
+	public function delete_log_file() {
+		foreach ( $this->log->getHandlers() as $handler ) {
+			$handler->close();
+		}
+
+		if ( file_exists( $this->log_path ) ) {
+			unlink( $this->log_path );
+		}
 	}
 
 
