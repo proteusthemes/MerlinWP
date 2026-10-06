@@ -130,7 +130,7 @@ class Merlin_Downloader {
 				return is_object( json_decode( $content ) );
 
 			case 'dat':
-				return is_serialized( $content ) && is_array( unserialize( $content, array( 'allowed_classes' => false ) ) );
+				return is_serialized( $content ) && is_array( unserialize( $content, array( 'allowed_classes' => array( 'stdClass' ) ) ) );
 		}
 
 		return true;

@@ -71,7 +71,7 @@ class Merlin_Customizer_Importer {
 			);
 		}
 
-		$data = unserialize( $raw, array( 'allowed_classes' => false ) );
+		$data = unserialize( $raw, array( 'allowed_classes' => array( 'stdClass' ) ) );
 
 		// Data checks.
 		if ( ! is_array( $data ) || ! isset( $data['template'] ) || ! isset( $data['mods'] ) ) {
