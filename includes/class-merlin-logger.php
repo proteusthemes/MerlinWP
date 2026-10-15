@@ -174,6 +174,19 @@ class Merlin_Logger {
 
 
 	/**
+	 * Log message for log level: critical.
+	 *
+	 * @param string $message The log message.
+	 * @param array  $context The log context.
+	 *
+	 * @return boolean Whether the record has been processed.
+	 */
+	public function critical( $message, $context = array() ) {
+		return $this->log->critical( $message, $context );
+	}
+
+
+	/**
 	 * Log message for log level: alert.
 	 *
 	 * @param string $message The log message.

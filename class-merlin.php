@@ -213,6 +213,27 @@ class Merlin {
 	public $logger;
 
 	/**
+	 * The URL for the big button on the ready step.
+	 *
+	 * @var string $ready_big_button_url
+	 */
+	protected $ready_big_button_url = null;
+
+	/**
+	 * The theme slug used in option names.
+	 *
+	 * @var string $slug
+	 */
+	protected $slug = '';
+
+	/**
+	 * The hook suffix of the wizard admin page.
+	 *
+	 * @var string $hook_suffix
+	 */
+	protected $hook_suffix = '';
+
+	/**
 	 * Setup plugin version.
 	 *
 	 * @access private
@@ -569,6 +590,14 @@ class Merlin {
 			<meta name="viewport" content="width=device-width"/>
 			<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 			<?php printf( esc_html( $strings['title%s%s%s%s'] ), '<ti', 'tle>', esc_html( $this->theme->name ), '</title>' ); ?>
+			<?php
+			if ( function_exists( 'wp_enqueue_emoji_styles' ) ) {
+				wp_enqueue_emoji_styles();
+			}
+			if ( function_exists( 'wp_enqueue_admin_bar_header_styles' ) ) {
+				wp_enqueue_admin_bar_header_styles();
+			}
+			?>
 			<?php do_action( 'admin_print_styles' ); ?>
 			<?php do_action( 'admin_print_scripts' ); ?>
 			<?php do_action( 'admin_head' ); ?>
@@ -1405,7 +1434,10 @@ class Merlin {
 
 			$this->generate_child_screenshot( $path );
 
-			$allowed_themes          = get_option( 'allowedthemes' );
+			$allowed_themes = get_option( 'allowedthemes', array() );
+			if ( ! is_array( $allowed_themes ) ) {
+				$allowed_themes = array();
+			}
 			$allowed_themes[ $slug ] = true;
 			update_option( 'allowedthemes', $allowed_themes );
 
@@ -2137,7 +2169,7 @@ class Merlin {
 	 */
 	public function after_content_import_setup() {
 		// Set static homepage.
-		$homepage = get_page_by_title( apply_filters( 'merlin_content_home_page_title', 'Home' ) );
+		$homepage = $this->get_post_by_title( apply_filters( 'merlin_content_home_page_title', 'Home' ), 'page' );
 
 		if ( $homepage ) {
 			update_option( 'page_on_front', $homepage->ID );
@@ -2147,7 +2179,7 @@ class Merlin {
 		}
 
 		// Set static blog page.
-		$blogpage = get_page_by_title( apply_filters( 'merlin_content_blog_page_title', 'Blog' ) );
+		$blogpage = $this->get_post_by_title( apply_filters( 'merlin_content_blog_page_title', 'Blog' ), 'page' );
 
 		if ( $blogpage ) {
 			update_option( 'page_for_posts', $blogpage->ID );
@@ -2162,7 +2194,7 @@ class Merlin {
 	 */
 	public function before_content_import_setup() {
 		// Update the Hello World! post by making it a draft.
-		$hello_world = get_page_by_title( 'Hello World!', OBJECT, 'post' );
+		$hello_world = $this->get_post_by_title( 'Hello World!', 'post' );
 
 		if ( ! empty( $hello_world ) ) {
 			$hello_world->post_status = 'draft';
@@ -2170,6 +2202,33 @@ class Merlin {
 
 			$this->logger->debug( __( 'The Hello world post status was set to draft', '@@textdomain' ) );
 		}
+	}
+
+	/**
+	 * Get the oldest post of the given post type with the given title.
+	 *
+	 * @param string $title     The post title.
+	 * @param string $post_type The post type.
+	 *
+	 * @return WP_Post|null
+	 */
+	protected function get_post_by_title( $title, $post_type ) {
+		$query = new WP_Query(
+			array(
+				'post_type'              => $post_type,
+				'title'                  => $title,
+				'post_status'            => 'all',
+				'posts_per_page'         => 1,
+				'orderby'                => 'post_date ID',
+				'order'                  => 'ASC',
+				'no_found_rows'          => true,
+				'ignore_sticky_posts'    => true,
+				'update_post_term_cache' => false,
+				'update_post_meta_cache' => false,
+			)
+		);
+
+		return $query->posts ? $query->posts[0] : null;
 	}
 
 	/**

@@ -1,10 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4053d754715459ef8ebcad5eac9b5ecc",
+    "content-hash": "1fa5e9921789375f6a18fbae2fdc4934",
     "packages": [
         {
             "name": "monolog/monolog",
@@ -86,16 +86,16 @@
         },
         {
             "name": "proteusthemes/wp-content-importer-v2",
-            "version": "v2.1.0",
+            "version": "v2.1.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/proteusthemes/WordPress-Importer.git",
-                "reference": "7414ce1bfb56a8be780c520ed63e99cac7ac403b"
+                "reference": "606c9b057adc1652f572ae32819fcadba79eaf48"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/proteusthemes/WordPress-Importer/zipball/7414ce1bfb56a8be780c520ed63e99cac7ac403b",
-                "reference": "7414ce1bfb56a8be780c520ed63e99cac7ac403b",
+                "url": "https://api.github.com/repos/proteusthemes/WordPress-Importer/zipball/606c9b057adc1652f572ae32819fcadba79eaf48",
+                "reference": "606c9b057adc1652f572ae32819fcadba79eaf48",
                 "shasum": ""
             },
             "type": "library",
@@ -110,12 +110,12 @@
             ],
             "authors": [
                 {
-                    "name": "Primoz Cigler",
-                    "email": "primoz@proteusnet.com"
-                },
-                {
                     "name": "Gregor Capuder",
                     "email": "capuderg@gmail.com"
+                },
+                {
+                    "name": "Primoz Cigler",
+                    "email": "primoz@proteusnet.com"
                 },
                 {
                     "name": "Humanmade contributors",
@@ -131,7 +131,10 @@
                 "wordpress",
                 "wp"
             ],
-            "time": "2018-04-13T07:31:18+00:00"
+            "support": {
+                "source": "https://github.com/proteusthemes/WordPress-Importer/tree/v2.1.2"
+            },
+            "time": "2026-10-15T06:15:35+00:00"
         },
         {
             "name": "psr/log",
@@ -184,9 +187,10 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
-    "platform-dev": []
+    "platform": {},
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }
